@@ -1,8 +1,3 @@
-/**
- * Copyright 2021 Google LLC
- * (License info unchanged)
- */
-
 data "google_project" "project" {
   project_id = var.project_id
 }
