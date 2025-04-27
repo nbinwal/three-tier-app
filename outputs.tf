@@ -1,8 +1,3 @@
-/**
- * Copyright 2021 Google LLC
- * (License info unchanged)
- */
-
 output "endpoint" {
   value       = google_cloud_run_service.fe.status[0].url
   description = "The URL of the front end service"
