@@ -44,8 +44,8 @@ module "project-services" {
     "storage.googleapis.com",
     "run.googleapis.com",
     "redis.googleapis.com",
-    "secretmanager.googleapis.com", # newly added
-    "iamcredentials.googleapis.com" # for IAM DB auth
+    "secretmanager.googleapis.com",
+    "iamcredentials.googleapis.com"
   ]
 }
 
@@ -62,10 +62,10 @@ resource "google_project_iam_member" "runsa_roles" {
   member   = "serviceAccount:${google_service_account.runsa.email}"
 }
 
-# SECRET for MySQL password if using MySQL
 resource "google_secret_manager_secret" "db_password" {
-  secret_id     = "${var.deployment_name}-db-password"
-  project  = var.project_id
+  secret_id = "${var.deployment_name}-db-password"
+  project   = var.project_id
+
   replication {
     automatic = true
   }
@@ -112,7 +112,8 @@ resource "google_vpc_access_connector" "main" {
   network        = google_compute_network.main.name
   region         = var.region
   max_throughput = 300
-  depends_on     = [time_sleep.wait_before_destroying_network]
+
+  depends_on = [time_sleep.wait_before_destroying_network]
 }
 
 resource "time_sleep" "wait_before_destroying_network" {
@@ -147,19 +148,21 @@ resource "google_sql_database_instance" "main" {
   project          = var.project_id
 
   settings {
-    tier                  = "db-g1-small"
-    disk_autoresize       = true
-    disk_size             = 10
-    disk_type             = "PD_SSD"
-    user_labels           = var.labels
+    tier            = "db-g1-small"
+    disk_autoresize = true
+    disk_size       = 10
+    disk_type       = "PD_SSD"
+    user_labels     = var.labels
 
     ip_configuration {
       ipv4_enabled    = false
       private_network = "projects/${var.project_id}/global/networks/${google_compute_network.main.name}"
     }
+
     location_preference {
       zone = var.zone
     }
+
     dynamic "database_flags" {
       for_each = var.database_type == "postgresql" ? [1] : []
       content {
@@ -200,8 +203,10 @@ resource "google_cloud_run_service" "api" {
   template {
     spec {
       service_account_name = google_service_account.runsa.email
+
       containers {
         image = local.api_image
+
         dynamic "env" {
           for_each = var.database_type == "postgresql" ? local.api_env_vars_postgresql : local.api_env_vars_mysql
           content {
@@ -225,10 +230,13 @@ resource "google_cloud_run_service" "api" {
       }
     }
   }
+
   metadata {
     labels = var.labels
   }
+
   autogenerate_revision_name = true
+
   depends_on = [
     google_sql_user.main,
     google_sql_database.database
@@ -243,17 +251,21 @@ resource "google_cloud_run_service" "fe" {
   template {
     spec {
       service_account_name = google_service_account.runsa.email
+
       containers {
         image = local.fe_image
+
         ports {
           container_port = 80
         }
+
         env {
           name  = "ENDPOINT"
           value = google_cloud_run_service.api.status[0].url
         }
       }
     }
+
     metadata {
       annotations = {
         "autoscaling.knative.dev/maxScale" = "8"
@@ -263,6 +275,7 @@ resource "google_cloud_run_service" "fe" {
       }
     }
   }
+
   metadata {
     labels = var.labels
   }
@@ -273,7 +286,7 @@ resource "google_cloud_run_service_iam_member" "noauth_api" {
   project  = google_cloud_run_service.api.project
   service  = google_cloud_run_service.api.name
   role     = "roles/run.invoker"
-  member   = "allUsers" # Caution: Public access. Consider using authenticated access later.
+  member   = "allUsers"
 }
 
 resource "google_cloud_run_service_iam_member" "noauth_fe" {
@@ -283,4 +296,3 @@ resource "google_cloud_run_service_iam_member" "noauth_fe" {
   role     = "roles/run.invoker"
   member   = "allUsers"
 }
-
