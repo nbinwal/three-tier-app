@@ -1,8 +1,3 @@
-/**
- * Copyright 2021 Google LLC
- * (License info unchanged)
- */
-
 variable "project_id" {
   type        = string
   description = "The project ID to deploy to"
