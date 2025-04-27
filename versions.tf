@@ -1,8 +1,3 @@
-/**
- * Copyright 2021 Google LLC
- * (License info unchanged)
- */
-
 terraform {
   required_version = ">= 1.5"
 
