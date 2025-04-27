@@ -1,0 +1,70 @@
+# ------------------------
+# Terraform state & config
+# ------------------------
+
+# Local Terraform directories
+**/.terraform/
+
+# Local state files
+*.tfstate
+*.tfstate.*
+
+# Crash and backup logs
+crash.log
+*.backup
+
+# Terraform lock file (auto-generated)
+.terraform.lock.hcl
+
+# Automatically generated tfvars (override files, CI/CD, etc.)
+**/*.tfvars
+
+# ------------------------
+# Secrets & credentials
+# ------------------------
+
+# GCP SDK credential helper
+credentials.json
+
+# Secret Manager overrides (if you ever download/access them locally)
+*.pem
+*.key
+
+# ------------------------
+# OS & editor temp files
+# ------------------------
+
+# macOS
+.DS_Store
+._*
+
+# Vim swap files
+.*.sw?
+*.un~
+
+# Emacs/Vim transient files
+*~
+\#*\#
+.\#*
+
+# Visual Studio Code
+.vscode/
+
+# JetBrains IDEs
+.idea/
+
+# Python byte-code
+*.pyc
+
+# ------------------------
+# Custom local files
+# ------------------------
+
+# A placeholder example tfvars file that you might want in VCS
+!example.tfvars
+
+# Any other local-only files
+clean
+temp.vars
+cft.json
+
