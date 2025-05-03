@@ -236,6 +236,11 @@ resource "google_cloud_run_service" "api" {
             value = env.value
           }
         }
+        # Ensure the PORT environment variable is set for your app
+        env {
+          name  = "PORT"
+          value = "8080"
+        }
         ports {
           container_port = 8080
         }
@@ -312,7 +317,8 @@ resource "google_cloud_run_service_iam_member" "noauth_api" {
 
 # Allow unauthenticated (public) access to the Frontend Cloud Run service
 resource "google_cloud_run_service_iam_member" "noauth_fe" {
-  location = google_cloud_run_service.fe.location
+
+n  location = google_cloud_run_service.fe.location
   project  = google_cloud_run_service.fe.project
   service  = google_cloud_run_service.fe.name
   role     = "roles/run.invoker"
