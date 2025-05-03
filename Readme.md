@@ -18,23 +18,30 @@ This repository contains: `main.tf`, `variables.tf`, `outputs.tf`, and `versions
 ## 2. Configure Environment Variables  
 Create a `terraform.tfvars` file at the root with your parameters:
 ```hcl
+# Choose ONE database type (comment/uncomment as needed)
+database_type   = "postgresql"  # For PostgreSQL
+# database_type   = "mysql"      # For MySQL
+
 project_id      = "trusty-stacker-453107-i1"
 deployment_name = "three-tier-app"
-database_type   = "postgresql"
 enable_apis     = true
 
-# Updated IAM roles matching the service account requirements
+# Only required for MySQL (comment when using PostgreSQL)
+# mysql_password  = "your-secure-password"
+
+# IAM roles (automatically adjusts based on database type)
 run_roles_list = [
   "roles/cloudsql.instanceUser",
   "roles/cloudsql.client",
-  "roles/secretmanager.secretAccessor",
   "roles/iam.serviceAccountUser",
-  "roles/redis.viewer"  # Keep if you need view access to Redis
+  "roles/redis.viewer",
+  # Uncomment next line for MySQL
+  # "roles/secretmanager.secretAccessor"  
 ]
 
 labels = {
-  environment = "dev"
-  project     = "three-tier-app"
+  environment = "dev",
+  project     = "three-tier-app",
   managed-by  = "terraform"
 }
 
