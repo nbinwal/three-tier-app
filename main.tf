@@ -75,7 +75,7 @@ resource "google_secret_manager_secret" "db_password" {
   secret_id   = "${var.deployment_name}-db-password"
   project     = var.project_id
   replication {
-    automatic = true
+    auto {}
   }
 }
 
