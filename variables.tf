@@ -29,6 +29,7 @@ variable "database_type" {
   default     = "postgresql"
 
   validation {
+    # Ensure only 'mysql' or 'postgresql' are allowed
     condition     = contains(["mysql", "postgresql"], var.database_type)
     error_message = "Must be either \"mysql\" or \"postgresql\"."
   }
@@ -50,10 +51,10 @@ variable "run_roles_list" {
   description = "List of IAM roles to grant to the Cloud Run service account."
   type        = list(string)
   default = [
+    "roles/cloudsql.instanceUser",
     "roles/cloudsql.client",
     "roles/secretmanager.secretAccessor",
-    "roles/iam.serviceAccountUser",
-    "roles/redis.viewer"
+    "roles/iam.serviceAccountUser"
   ]
 }
 
@@ -61,5 +62,5 @@ variable "mysql_password" {
   type        = string
   description = "The password for the MySQL user (only used if database_type = \"mysql\")."
   sensitive   = true
-  default     = null
+  default     = "CHANGE_ME"
 }
