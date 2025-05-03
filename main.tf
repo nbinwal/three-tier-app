@@ -177,11 +177,9 @@ resource "google_sql_database_instance" "main" {
       ipv4_enabled    = false
       private_network = "projects/${var.project_id}/global/networks/${google_compute_network.main.name}"
     }
-
     location_preference {
       zone = var.zone
     }
-
     dynamic "database_flags" {
       for_each = var.database_type == "postgresql" ? [1] : []
       content {
@@ -190,7 +188,6 @@ resource "google_sql_database_instance" "main" {
       }
     }
   }
-
   deletion_protection = false
   depends_on          = [google_service_networking_connection.main]
 }
@@ -243,14 +240,78 @@ resource "google_cloud_run_service" "api" {
     }
     metadata {
       annotations = {
-        "autoscaling.knative.dev/maxScale"         = "8"
-        "run.googleapis.com/cloudsql-instances"    = google_sql_database_instance.main.connection_name
-        "run.googleapis.com/client-name"           = "terraform"
-        "run.googleapis.com/vpc-access-egress"     = "all"
-        "run.googleapis.com/vpc-access-connector"  = google_vpc_access_connector.main.id
-        "run.googleapis.com/startup-cpu-boost"     = "true"
+        "autoscaling.knative.dev/maxScale"      = "8"
+        "run.googleapis.com/cloudsql-instances" = google_sql_database_instance.main.connection_name
+        "run.googleapis.com/client-name"        = "terraform"
+        "run.googleapis.com/vpc-access-egress"  = "all"
+        "run.googleapis.com/vpc-access-connector" = google_vpc_access_connector.main.id
+        "run.googleapis.com/startup-cpu-boost"  = "true"
       }
       labels = {
         "run.googleapis.com/startupProbeType" = "Default"
       }
     }
+  }
+
+  metadata {
+    labels = var.labels
+  }
+
+  autogenerate_revision_name = true
+  depends_on = [google_sql_user.main, google_sql_database.database]
+}
+
+# ---------------------------------------------------------------------------------
+# Resource: Cloud Run service for the Frontend (FE)
+resource "google_cloud_run_service" "fe" {
+  name     = "${var.deployment_name}-fe"
+  location = var.region
+  project  = var.project_id
+
+  template {
+    spec {
+      service_account_name = google_service_account.runsa.email
+      containers {
+        image = local.fe_image
+        ports {
+          container_port = 80
+        }
+        env {
+          name  = "ENDPOINT"
+          value = google_cloud_run_service.api.status[0].url
+        }
+      }
+    }
+    metadata {
+      annotations = {
+        "autoscaling.knative.dev/maxScale" = "8"
+      }
+      labels = {
+        "run.googleapis.com/startupProbeType" = "Default"
+      }
+    }
+  }
+  metadata {
+    labels = var.labels
+  }
+}
+
+# ---------------------------------------------------------------------------------
+# Allow unauthenticated (public) access to the API Cloud Run service
+resource "google_cloud_run_service_iam_member" "noauth_api" {
+  location = google_cloud_run_service.api.location
+  project  = google_cloud_run_service.api.project
+  service  = google_cloud_run_service.api.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+# ---------------------------------------------------------------------------------
+# Allow unauthenticated (public) access to the Frontend Cloud Run service
+resource "google_cloud_run_service_iam_member" "noauth_fe" {
+  location = google_cloud_run_service.fe.location
+  project  = google_cloud_run_service.fe.project
+  service  = google_cloud_run_service.fe.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
