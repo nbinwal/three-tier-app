@@ -23,42 +23,48 @@ variable "deployment_name" {
 
 variable "database_type" {
   type        = string
-  description = "Cloud SQL Database flavor, mysql or postgresql"
+  description = "Cloud SQL Database flavor: either 'mysql' or 'postgresql'"
   default     = "postgresql"
   validation {
     condition     = contains(["mysql", "postgresql"], var.database_type)
-    error_message = "Must be either \"mysql\" or \"postgresql\"."
+    error_message = "database_type must be either 'mysql' or 'postgresql'."
   }
 }
 
 variable "labels" {
   type        = map(string)
-  description = "A map of labels to apply to contained resources."
-  default     = { "three-tier-app" = "true" }
+  description = "A map of labels to apply to all resources"
+  default     = {
+    environment = "dev"
+    project     = "three-tier-app"
+  }
 }
 
 variable "enable_apis" {
   type        = bool
-  description = "Whether or not to enable underlying APIs in this solution."
+  description = "Whether or not to enable required GCP APIs"
   default     = true
 }
 
 variable "run_roles_list" {
-  description = "The list of IAM roles to grant to the Cloud Run service account."
+  description = "List of IAM roles to grant to the Cloud Run service account"
   type        = list(string)
-  default = [
-    "roles/cloudsql.instanceUser",
+  default     = [
+    "roles/iam.serviceAccountUser",
     "roles/cloudsql.client",
-    "roles/secretmanager.secretAccessor",    # allows reading secrets
-    "roles/iam.serviceAccountUser"          # for IAM auth
+    "roles/secretmanager.secretAccessor",
+    "roles/redis.viewer",
   ]
 }
 
-# Only used for MySQL; PostgreSQL uses IAM DB auth
 variable "mysql_password" {
   type        = string
-  description = "The password for the MySQL user; stored in Secret Manager"
+  description = "The password for the MySQL user (only used when database_type = 'mysql')"
   sensitive   = true
-  default     = "CHANGE_ME"  # override with real secret input
 }
 
+variable "pg_password" {
+  type        = string
+  description = "The password for the PostgreSQL user (only used when database_type = 'postgresql')"
+  sensitive   = true
+}
