@@ -1,15 +1,23 @@
 /**
- * Refactored main.tf combining original structure with dynamic env support and correct container port
+ * Copyright 2021 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
-# ---------------------------------------------------------------------------------
-# Data Source: Get information about the GCP project where resources will be created
 data "google_project" "project" {
   project_id = var.project_id
 }
 
-# ---------------------------------------------------------------------------------
-# Locals: Define computed values or shortcuts used within this configuration
 locals {
   api_image = var.database_type == "mysql" ? "gcr.io/sic-container-repo/todo-api" : "gcr.io/sic-container-repo/todo-api-postgres:latest"
   fe_image  = "gcr.io/sic-container-repo/todo-fe"
@@ -33,8 +41,6 @@ locals {
   }
 }
 
-# ---------------------------------------------------------------------------------
-# Module: Enable GCP project services/APIs using a standard module (Project Factory)
 module "project-services" {
   source                      = "terraform-google-modules/project-factory/google//modules/project_services"
   version                     = "18.0.0"
@@ -57,15 +63,12 @@ module "project-services" {
   ]
 }
 
-# ---------------------------------------------------------------------------------
-# Service Account for Cloud Run
 resource "google_service_account" "runsa" {
   project      = var.project_id
   account_id   = "${var.deployment_name}-run-sa"
-  display_name = "Cloud Run SA"
+  display_name = "Service Account for Cloud Run"
 }
 
-# Grant IAM roles to the SA
 resource "google_project_iam_member" "runsa_roles" {
   for_each = toset(var.run_roles_list)
   project  = data.google_project.project.number
@@ -73,13 +76,13 @@ resource "google_project_iam_member" "runsa_roles" {
   member   = "serviceAccount:${google_service_account.runsa.email}"
 }
 
-# ---------------------------------------------------------------------------------
-# MySQL password secret (only for mysql)
 resource "google_secret_manager_secret" "db_password" {
   count     = var.database_type == "mysql" ? 1 : 0
   secret_id = "${var.deployment_name}-db-password"
   project   = var.project_id
-  replication { auto {} }
+  replication {
+    auto {}
+  }
 }
 
 resource "google_secret_manager_secret_version" "db_password" {
@@ -93,17 +96,15 @@ data "google_secret_manager_secret_version" "db_password" {
   secret = google_secret_manager_secret.db_password[0].name
 }
 
-# ---------------------------------------------------------------------------------
-# VPC and Networking
 resource "google_compute_network" "main" {
   provider                = google-beta
-  name                    = "${var.deployment_name}-vpc"
+  name                    = "${var.deployment_name}-private-network"
   auto_create_subnetworks = true
   project                 = var.project_id
 }
 
 resource "google_compute_global_address" "main" {
-  name          = "${var.deployment_name}-vpc-range"
+  name          = "${var.deployment_name}-vpc-address"
   provider      = google-beta
   purpose       = "VPC_PEERING"
   address_type  = "INTERNAL"
@@ -120,20 +121,18 @@ resource "google_service_networking_connection" "main" {
 }
 
 resource "google_vpc_access_connector" "main" {
-  provider       = google-beta
-  name           = "${var.deployment_name}-vpc-connector"
-  region         = var.region
-  network        = google_compute_network.main.name
-  ip_cidr_range  = "10.8.0.0/28"
+  provider      = google-beta
+  project       = var.project_id
+  name          = "${var.deployment_name}-vpc-cx"
+  ip_cidr_range = "10.8.0.0/28"
+  network       = google_compute_network.main.name
+  region        = var.region
   max_throughput = 300
-  project        = var.project_id
-  depends_on     = [google_compute_network.main]
+  depends_on    = [google_compute_network.main]
 }
 
-# ---------------------------------------------------------------------------------
-# Redis
 resource "google_redis_instance" "main" {
-  name                    = "${var.deployment_name}-redis"
+  name                    = "${var.deployment_name}-cache"
   region                  = var.region
   location_id             = var.zone
   tier                    = "BASIC"
@@ -144,13 +143,12 @@ resource "google_redis_instance" "main" {
   labels                  = var.labels
 }
 
-# ---------------------------------------------------------------------------------
-# Random suffix for DB name
-e resource "random_id" "suffix" { byte_length = 2 }
+resource "random_id" "id" {
+  byte_length = 2
+}
 
-# ---------------------------------------------------------------------------------
-# Cloud SQL\ nresource "google_sql_database_instance" "main" {
-  name             = "${var.deployment_name}-db-${random_id.suffix.hex}"
+resource "google_sql_database_instance" "main" {
+  name             = "${var.deployment_name}-db-${random_id.id.hex}"
   database_version = var.database_type == "mysql" ? "MYSQL_8_0" : "POSTGRES_14"
   region           = var.region
   project          = var.project_id
@@ -161,6 +159,7 @@ e resource "random_id" "suffix" { byte_length = 2 }
     disk_autoresize       = true
     disk_size             = 10
     user_labels           = var.labels
+
     ip_configuration {
       ipv4_enabled    = false
       private_network = google_compute_network.main.self_link
@@ -186,16 +185,15 @@ resource "google_sql_user" "main" {
   password = var.database_type == "mysql" ? data.google_secret_manager_secret_version.db_password[0].secret_data : null
 }
 
-resource "google_sql_database" "todo" {
+resource "google_sql_database" "database" {
   project  = var.project_id
   instance = google_sql_database_instance.main.name
   name     = "todo"
 }
 
-# ---------------------------------------------------------------------------------
-# Cloud Run API (listens on port 80)
 resource "google_cloud_run_service" "api" {
   name     = "${var.deployment_name}-api"
+  provider = google-beta
   location = var.region
   project  = var.project_id
 
@@ -204,7 +202,6 @@ resource "google_cloud_run_service" "api" {
       service_account_name = google_service_account.runsa.email
       containers {
         image = local.api_image
-        ports { container_port = 80 }
         dynamic "env" {
           for_each = var.database_type == "postgresql" ? local.api_env_vars_postgresql : local.api_env_vars_mysql
           content {
@@ -212,6 +209,7 @@ resource "google_cloud_run_service" "api" {
             value = env.value
           }
         }
+        ports { container_port = 80 }
       }
     }
     metadata {
@@ -223,17 +221,18 @@ resource "google_cloud_run_service" "api" {
       labels = var.labels
     }
   }
+
   autogenerate_revision_name = true
+
   traffic {
     percent         = 100
     latest_revision = true
   }
 }
 
-# ---------------------------------------------------------------------------------
-# Cloud Run Frontend
 resource "google_cloud_run_service" "fe" {
   name     = "${var.deployment_name}-fe"
+  provider = google-beta
   location = var.region
   project  = var.project_id
 
@@ -254,14 +253,17 @@ resource "google_cloud_run_service" "fe" {
       labels      = var.labels
     }
   }
+
   autogenerate_revision_name = true
-  traffic { percent = 100; latest_revision = true }
+
+  traffic {
+    percent         = 100
+    latest_revision = true
+  }
 }
 
-# ---------------------------------------------------------------------------------
-# Public IAM bindings
 resource "google_cloud_run_service_iam_member" "api_invoker" {
-  service = google_cloud_run_service.api.name
+  service  = google_cloud_run_service.api.name
   location = google_cloud_run_service.api.location
   project  = google_cloud_run_service.api.project
   role     = "roles/run.invoker"
