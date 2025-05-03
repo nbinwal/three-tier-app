@@ -2,6 +2,12 @@ data "google_project" "project" {
   project_id = var.project_id
 }
 
+# Removed the data block that was causing the error
+# data "google_secret_manager_secret_version" "db_password" {
+#   count   = var.database_type == "mysql" ? 1 : 0
+#   secret  = google_secret_manager_secret.db_password[0].name
+# }
+
 locals {
   api_image = var.database_type == "mysql" ? "gcr.io/sic-container-repo/todo-api" : "gcr.io/sic-container-repo/todo-api-postgres:latest"
   fe_image  = "gcr.io/sic-container-repo/todo-fe"
@@ -19,7 +25,7 @@ locals {
     REDISHOST  = google_redis_instance.main.host
     todo_host  = google_sql_database_instance.main.ip_address[0].ip_address
     todo_user  = "foo"
-    todo_pass  = var.database_type == "mysql" ? data.google_secret_manager_secret_version.db_password[0].secret_data : null
+    todo_pass  = var.mysql_password
     todo_name  = "todo"
     REDISPORT  = "6379"
   }
