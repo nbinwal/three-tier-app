@@ -12,10 +12,10 @@ locals {
 
   api_env_vars_postgresql = {
     redis_host = google_redis_instance.main.host
-    db_host    = google_sql_database_instance.main.ip_address[0].ip_address
-    db_user    = google_service_account.runsa.email
-    db_conn    = google_sql_database_instance.main.connection_name
-    db_name    = "todo"
+    PGHOST     = google_sql_database_instance.main.ip_address[0].ip_address
+    PGUSER     = google_service_account.runsa.email
+    PGDATABASE = "todo"
+    PGPORT     = "5432"
     redis_port = "6379"
   }
 
@@ -230,7 +230,7 @@ resource "google_cloud_run_service" "api" {
       containers {
         image = local.api_image
         ports {
-          container_port = 80
+          container_port = 8080
         }
         dynamic "env" {
           for_each = var.database_type == "postgresql" ? local.api_env_vars_postgresql : local.api_env_vars_mysql
