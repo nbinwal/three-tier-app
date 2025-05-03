@@ -50,10 +50,10 @@ variable "run_roles_list" {
   description = "List of IAM roles to grant to the Cloud Run service account."
   type        = list(string)
   default = [
-    "roles/cloudsql.instanceUser",
     "roles/cloudsql.client",
     "roles/secretmanager.secretAccessor",
-    "roles/iam.serviceAccountUser"
+    "roles/iam.serviceAccountUser",
+    "roles/redis.viewer"
   ]
 }
 
@@ -61,5 +61,5 @@ variable "mysql_password" {
   type        = string
   description = "The password for the MySQL user (only used if database_type = \"mysql\")."
   sensitive   = true
-  default     = "CHANGE_ME"
+  default     = null
 }
