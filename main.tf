@@ -14,19 +14,13 @@
  * limitations under the License.
  */
 
-# ---------------------------------------------------------------------------------
-# Data Source: Get information about the GCP project where resources will be created
 data "google_project" "project" {
   project_id = var.project_id
 }
 
-# ---------------------------------------------------------------------------------
-# Locals: Define computed values or shortcuts used within this configuration
 locals {
-  api_image = var.database_type == "mysql"
-    ? "gcr.io/sic-container-repo/todo-api"
-    : "gcr.io/sic-container-repo/todo-api-postgres:latest"
-  fe_image = "gcr.io/sic-container-repo/todo-fe"
+  api_image = var.database_type == "mysql" ? "gcr.io/sic-container-repo/todo-api" : "gcr.io/sic-container-repo/todo-api-postgres:latest"
+  fe_image  = "gcr.io/sic-container-repo/todo-fe"
 
   api_env_vars_postgresql = {
     redis_host = google_redis_instance.main.host
@@ -41,16 +35,12 @@ locals {
     REDISHOST = google_redis_instance.main.host
     todo_host = google_sql_database_instance.main.ip_address[0].ip_address
     todo_user = "foo"
-    todo_pass = var.database_type == "mysql"
-      ? data.google_secret_manager_secret_version.db_password[0].secret_data
-      : ""
+    todo_pass = var.database_type == "mysql" ? data.google_secret_manager_secret_version.db_password[0].secret_data : ""
     todo_name = "todo"
     REDISPORT = "6379"
   }
 }
 
-# ---------------------------------------------------------------------------------
-# Module: Enable GCP project services/APIs using a standard module (Project Factory)
 module "project-services" {
   source                      = "terraform-google-modules/project-factory/google//modules/project_services"
   version                     = "18.0.0"
@@ -69,12 +59,10 @@ module "project-services" {
     "run.googleapis.com",
     "redis.googleapis.com",
     "secretmanager.googleapis.com",
-    "iamcredentials.googleapis.com",
+    "iamcredentials.googleapis.com"
   ]
 }
 
-# ---------------------------------------------------------------------------------
-# Resource: Google Service Account for Cloud Run services
 resource "google_service_account" "runsa" {
   project      = var.project_id
   account_id   = "${var.deployment_name}-run-sa"
@@ -88,8 +76,6 @@ resource "google_project_iam_member" "runsa_roles" {
   member   = "serviceAccount:${google_service_account.runsa.email}"
 }
 
-# ---------------------------------------------------------------------------------
-# Resource: Secret Manager - create a secret to hold the database password (only for MySQL)
 resource "google_secret_manager_secret" "db_password" {
   count     = var.database_type == "mysql" ? 1 : 0
   secret_id = "${var.deployment_name}-db-password"
@@ -111,8 +97,6 @@ data "google_secret_manager_secret_version" "db_password" {
   secret = google_secret_manager_secret.db_password[0].name
 }
 
-# ---------------------------------------------------------------------------------
-# Resource: Create a Google Compute VPC network (default auto‑subnet mode)
 resource "google_compute_network" "main" {
   provider                = google-beta
   name                    = "${var.deployment_name}-private-network"
@@ -137,21 +121,16 @@ resource "google_service_networking_connection" "main" {
   depends_on              = [google_compute_network.main]
 }
 
-# ---------------------------------------------------------------------------------
-# Resource: VPC Access Connector (allows Cloud Run to access VPC resources privately)
 resource "google_vpc_access_connector" "main" {
-  provider       = google-beta
-  project        = var.project_id
-  name           = "${var.deployment_name}-vpc-cx"
-  ip_cidr_range  = "10.8.0.0/28"
-  network        = google_compute_network.main.name
-  region         = var.region
+  provider      = google-beta
+  project       = var.project_id
+  name          = "${var.deployment_name}-vpc-cx"
+  ip_cidr_range = "10.8.0.0/28"
+  network       = google_compute_network.main.name
+  region        = var.region
   max_throughput = 300
-  depends_on     = [google_compute_network.main]
 }
 
-# ---------------------------------------------------------------------------------
-# Resource: Redis instance in Memorystore
 resource "google_redis_instance" "main" {
   name                    = "${var.deployment_name}-cache"
   region                  = var.region
@@ -164,14 +143,10 @@ resource "google_redis_instance" "main" {
   labels                  = var.labels
 }
 
-# ---------------------------------------------------------------------------------
-# Resource: Generate a small random ID to suffix the DB instance name
 resource "random_id" "id" {
   byte_length = 2
 }
 
-# ---------------------------------------------------------------------------------
-# Resource: Cloud SQL (MySQL or PostgreSQL) instance
 resource "google_sql_database_instance" "main" {
   name             = "${var.deployment_name}-db-${random_id.id.hex}"
   database_version = var.database_type == "mysql" ? "MYSQL_8_0" : "POSTGRES_14"
@@ -207,32 +182,22 @@ resource "google_sql_database_instance" "main" {
   depends_on          = [google_service_networking_connection.main]
 }
 
-# ---------------------------------------------------------------------------------
-# Resource: Cloud SQL user configuration
 resource "google_sql_user" "main" {
   project         = var.project_id
   instance        = google_sql_database_instance.main.name
   deletion_policy = "ABANDON"
 
-  name     = var.database_type == "postgresql"
-    ? "${google_service_account.runsa.account_id}@${var.project_id}.iam"
-    : "foo"
+  name     = var.database_type == "postgresql" ? "${google_service_account.runsa.account_id}@${var.project_id}.iam" : "foo"
   type     = var.database_type == "postgresql" ? "CLOUD_IAM_SERVICE_ACCOUNT" : null
-  password = var.database_type == "mysql"
-    ? data.google_secret_manager_secret_version.db_password[0].secret_data
-    : null
+  password = var.database_type == "mysql" ? data.google_secret_manager_secret_version.db_password[0].secret_data : null
 }
 
-# ---------------------------------------------------------------------------------
-# Resource: Create a Cloud SQL database inside the instance
 resource "google_sql_database" "database" {
   project  = var.project_id
   name     = "todo"
   instance = google_sql_database_instance.main.name
 }
 
-# ---------------------------------------------------------------------------------
-# Resource: Cloud Run service for the API/backend
 resource "google_cloud_run_service" "api" {
   name     = "${var.deployment_name}-api"
   provider = google-beta
@@ -246,16 +211,13 @@ resource "google_cloud_run_service" "api" {
         image = local.api_image
 
         dynamic "env" {
-          for_each = var.database_type == "postgresql"
-            ? local.api_env_vars_postgresql
-            : local.api_env_vars_mysql
+          for_each = var.database_type == "postgresql" ? local.api_env_vars_postgresql : local.api_env_vars_mysql
           content {
             name  = env.key
             value = env.value
           }
         }
 
-        # expose port 80 to match your container’s listening port
         ports { container_port = 80 }
       }
     }
@@ -273,13 +235,11 @@ resource "google_cloud_run_service" "api" {
   autogenerate_revision_name = true
 
   traffic {
-    percent         = 100
+    percent = 100
     latest_revision = true
   }
 }
 
-# ---------------------------------------------------------------------------------
-# Resource: Cloud Run service for the Frontend (FE)
 resource "google_cloud_run_service" "fe" {
   name     = "${var.deployment_name}-fe"
   provider = google-beta
@@ -301,20 +261,18 @@ resource "google_cloud_run_service" "fe" {
 
     metadata {
       annotations = { "autoscaling.knative.dev/maxScale" = "8" }
-      labels      = var.labels
+      labels = var.labels
     }
   }
 
   autogenerate_revision_name = true
 
   traffic {
-    percent         = 100
+    percent = 100
     latest_revision = true
   }
 }
 
-# ---------------------------------------------------------------------------------
-# Allow unauthenticated (public) access to the API Cloud Run service
 resource "google_cloud_run_service_iam_member" "noauth_api" {
   service  = google_cloud_run_service.api.name
   location = google_cloud_run_service.api.location
@@ -323,8 +281,6 @@ resource "google_cloud_run_service_iam_member" "noauth_api" {
   member   = "allUsers"
 }
 
-# ---------------------------------------------------------------------------------
-# Allow unauthenticated (public) access to the Frontend Cloud Run service
 resource "google_cloud_run_service_iam_member" "noauth_fe" {
   service  = google_cloud_run_service.fe.name
   location = google_cloud_run_service.fe.location
