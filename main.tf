@@ -23,7 +23,7 @@ locals {
     REDISHOST = google_redis_instance.main.host
     todo_host = google_sql_database_instance.main.ip_address[0].ip_address
     todo_user = "foo"
-    todo_pass = data.google_secret_manager_secret_version.db_password.secret_data
+    todo_pass = var.database_type == "mysql" ? data.google_secret_manager_secret_version.db_password[0].secret_data : ""
     todo_name = "todo"
     REDISPORT = "6379"
   }
@@ -69,22 +69,25 @@ resource "google_project_iam_member" "runsa_roles" {
 }
 
 # ---------------------------------------------------------------------------------
-# Resource: Secret Manager - create a secret to hold the database password
+# Resource: Secret Manager - create a secret to hold the database password (only for MySQL)
 resource "google_secret_manager_secret" "db_password" {
-  secret_id = "${var.deployment_name}-db-password"
-  project   = var.project_id
+  count       = var.database_type == "mysql" ? 1 : 0
+  secret_id   = "${var.deployment_name}-db-password"
+  project     = var.project_id
   replication {
     automatic = true
   }
 }
 
 resource "google_secret_manager_secret_version" "db_password" {
-  secret      = google_secret_manager_secret.db_password.id
+  count       = var.database_type == "mysql" ? 1 : 0
+  secret      = google_secret_manager_secret.db_password[0].id
   secret_data = var.mysql_password
 }
 
 data "google_secret_manager_secret_version" "db_password" {
-  secret = google_secret_manager_secret.db_password.name
+  count   = var.database_type == "mysql" ? 1 : 0
+  secret  = google_secret_manager_secret.db_password[0].name
 }
 
 # ---------------------------------------------------------------------------------
@@ -201,7 +204,7 @@ resource "google_sql_user" "main" {
 
   name     = var.database_type == "postgresql" ? "${google_service_account.runsa.account_id}@${var.project_id}.iam" : "foo"
   type     = var.database_type == "postgresql" ? "CLOUD_IAM_SERVICE_ACCOUNT" : null
-  password = var.database_type == "mysql" ? data.google_secret_manager_secret_version.db_password.secret_data : null
+  password = var.database_type == "mysql" ? data.google_secret_manager_secret_version.db_password[0].secret_data : null
 }
 
 # ---------------------------------------------------------------------------------
