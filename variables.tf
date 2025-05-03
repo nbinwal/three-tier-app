@@ -60,9 +60,4 @@ variable "mysql_password" {
   description = "The password for the MySQL user (required if database_type = \"mysql\")."
   sensitive   = true
   default     = null
-
-  validation {
-    condition     = var.database_type != "mysql" || (var.database_type == "mysql" && var.mysql_password != null)
-    error_message = "mysql_password is required when database_type is 'mysql'"
-  }
 }
