@@ -18,13 +18,37 @@ This repository contains: `main.tf`, `variables.tf`, `outputs.tf`, and `versions
 ## 2. Configure Environment Variables  
 Create a `terraform.tfvars` file at the root with your parameters:
 ```hcl
-project_id     = "YOUR_GCP_PROJECT_ID"
-region         = "us-central1"               # or your preferred region
-zone           = "us-central1-a"             # or your preferred zone
-deployment_name= "three-tier-app"            
-database_type  = "postgresql"                # or "mysql"
-mysql_password = "YOUR_MYSQL_PASSWORD"       # only if using MySQL
-enable_apis    = true
+project_id      = "YOUR_GCP_PROJECT_ID"
+region          = "us-central1"
+zone            = "us-central1-a"
+deployment_name = "three-tier-app"
+
+# Choose "postgresql" or "mysql"
+database_type   = "postgresql"
+
+# PostgreSQL password (only if database_type = "postgresql")
+pg_password     = "YOUR_SECURE_PG_PASSWORD"
+
+# MySQL password (only if database_type = "mysql")
+# mysql_password = "YOUR_SECURE_MYSQL_PASSWORD"
+
+# Enable required APIs
+enable_apis     = true
+
+# (Optional) List of IAM roles to attach to the Run service account
+default_run_roles = [
+  "roles/iam.serviceAccountUser",
+  "roles/cloudsql.client",
+  "roles/redis.viewer",
+  "roles/secretmanager.secretAccessor"
+]
+
+# Labels to apply to resources
+event_labels = {
+  environment = "dev"
+  project     = "three-tier-app"
+}
+
 ```
 Terraform will automatically load `terraform.tfvars` during plan and apply  ([three-tier-app/variables.tf at main · nbinwal/three-tier-app · GitHub](https://github.com/nbinwal/three-tier-app/blob/main/variables.tf)).
 
