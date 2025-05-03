@@ -1,68 +1,70 @@
 /**
- * Copyright 2021 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Refactored main.tf to support MySQL and PostgreSQL based on provided variables.tf, terraform.tfvars, and versions.tf
  */
 
+# ---------------------------------------------------------------------------------
+# Data Source: GCP project information
 data "google_project" "project" {
   project_id = var.project_id
 }
 
+# ---------------------------------------------------------------------------------
+# Locals: Images and environment variable maps
 locals {
-  api_image = var.database_type == "mysql" ? "gcr.io/sic-container-repo/todo-api" : "gcr.io/sic-container-repo/todo-api-postgres:latest"
-  fe_image  = "gcr.io/sic-container-repo/todo-fe"
+  api_image = var.database_type == "mysql" ?
+    "gcr.io/sic-container-repo/todo-api" :
+    "gcr.io/sic-container-repo/todo-api-postgres:latest"
+
+  fe_image = "gcr.io/sic-container-repo/todo-fe"
 
   api_env_vars_postgresql = {
-    redis_host = google_redis_instance.main.host
-    db_host    = google_sql_database_instance.main.ip_address[0].ip_address
-    db_user    = google_service_account.runsa.email
-    db_conn    = google_sql_database_instance.main.connection_name
-    db_name    = "todo"
-    redis_port = "6379"
+    REDIS_HOST = google_redis_instance.main.host
+    DB_HOST    = google_sql_database_instance.main.ip_address[0].ip_address
+    DB_USER    = google_service_account.runsa.email
+    DB_CONN    = google_sql_database_instance.main.connection_name
+    DB_NAME    = "todo"
+    REDIS_PORT = "6379"
   }
 
   api_env_vars_mysql = {
-    REDISHOST = google_redis_instance.main.host
-    todo_host = google_sql_database_instance.main.ip_address[0].ip_address
-    todo_user = "foo"
-    todo_pass = var.database_type == "mysql" ? data.google_secret_manager_secret_version.db_password[0].secret_data : ""
-    todo_name = "todo"
-    REDISPORT = "6379"
+    REDIS_HOST = google_redis_instance.main.host
+    DB_HOST    = google_sql_database_instance.main.ip_address[0].ip_address
+    DB_USER    = "foo"
+    DB_PASS    = var.database_type == "mysql" ? data.google_secret_manager_secret_version.db_password[0].secret_data : ""
+    DB_NAME    = "todo"
+    REDIS_PORT = "6379"
   }
 }
 
+# ---------------------------------------------------------------------------------
+# Enable required APIs
 module "project-services" {
   source                      = "terraform-google-modules/project-factory/google//modules/project_services"
   version                     = "18.0.0"
   project_id                  = var.project_id
   disable_services_on_destroy = false
   enable_apis                 = var.enable_apis
-  activate_apis = [
-    "compute.googleapis.com",
-    "cloudapis.googleapis.com",
-    "vpcaccess.googleapis.com",
-    "servicenetworking.googleapis.com",
-    "cloudbuild.googleapis.com",
-    "sql-component.googleapis.com",
-    "sqladmin.googleapis.com",
-    "storage.googleapis.com",
-    "run.googleapis.com",
-    "redis.googleapis.com",
-    "secretmanager.googleapis.com",
-    "iamcredentials.googleapis.com"
-  ]
+  activate_apis = concat(
+    [
+      "compute.googleapis.com",
+      "cloudapis.googleapis.com",
+      "vpcaccess.googleapis.com",
+      "servicenetworking.googleapis.com",
+      "cloudbuild.googleapis.com",
+      "sql-component.googleapis.com",
+      "sqladmin.googleapis.com",
+      "storage.googleapis.com",
+      "run.googleapis.com",
+      "redis.googleapis.com",
+      "secretmanager.googleapis.com",
+      "iamcredentials.googleapis.com",
+    ],
+    var.enable_apis ? [] : []
+  )
 }
 
+# ---------------------------------------------------------------------------------
+# Service Account for Cloud Run
 resource "google_service_account" "runsa" {
   project      = var.project_id
   account_id   = "${var.deployment_name}-run-sa"
@@ -76,13 +78,14 @@ resource "google_project_iam_member" "runsa_roles" {
   member   = "serviceAccount:${google_service_account.runsa.email}"
 }
 
+# ---------------------------------------------------------------------------------
+# Secret Manager (MySQL password)
 resource "google_secret_manager_secret" "db_password" {
   count     = var.database_type == "mysql" ? 1 : 0
   secret_id = "${var.deployment_name}-db-password"
   project   = var.project_id
-
   replication {
-    auto {}
+    automatic = true
   }
 }
 
@@ -97,6 +100,8 @@ data "google_secret_manager_secret_version" "db_password" {
   secret = google_secret_manager_secret.db_password[0].name
 }
 
+# ---------------------------------------------------------------------------------
+# Networking: VPC, address, peering, connector
 resource "google_compute_network" "main" {
   provider                = google-beta
   name                    = "${var.deployment_name}-private-network"
@@ -121,16 +126,24 @@ resource "google_service_networking_connection" "main" {
   depends_on              = [google_compute_network.main]
 }
 
-resource "google_vpc_access_connector" "main" {
-  provider      = google-beta
-  project       = var.project_id
-  name          = "${var.deployment_name}-vpc-cx"
-  ip_cidr_range = "10.8.0.0/28"
-  network       = google_compute_network.main.name
-  region        = var.region
-  max_throughput = 300
+resource "time_sleep" "wait_before_destroying_network" {
+  depends_on       = [google_compute_network.main]
+  destroy_duration = "60s"
 }
 
+resource "google_vpc_access_connector" "main" {
+  provider       = google-beta
+  project        = var.project_id
+  name           = "${var.deployment_name}-vpc-cx"
+  ip_cidr_range  = "10.8.0.0/28"
+  network        = google_compute_network.main.name
+  region         = var.region
+  max_throughput = 300
+  depends_on     = [time_sleep.wait_before_destroying_network]
+}
+
+# ---------------------------------------------------------------------------------
+# Redis instance
 resource "google_redis_instance" "main" {
   name                    = "${var.deployment_name}-cache"
   region                  = var.region
@@ -143,6 +156,8 @@ resource "google_redis_instance" "main" {
   labels                  = var.labels
 }
 
+# ---------------------------------------------------------------------------------
+# Cloud SQL instance
 resource "random_id" "id" {
   byte_length = 2
 }
@@ -187,17 +202,22 @@ resource "google_sql_user" "main" {
   instance        = google_sql_database_instance.main.name
   deletion_policy = "ABANDON"
 
-  name     = var.database_type == "postgresql" ? "${google_service_account.runsa.account_id}@${var.project_id}.iam" : "foo"
+  name = var.database_type == "postgresql" ?
+    "${google_service_account.runsa.account_id}@${var.project_id}.iam" :
+    "foo"
+
   type     = var.database_type == "postgresql" ? "CLOUD_IAM_SERVICE_ACCOUNT" : null
   password = var.database_type == "mysql" ? data.google_secret_manager_secret_version.db_password[0].secret_data : null
 }
 
 resource "google_sql_database" "database" {
   project  = var.project_id
-  name     = "todo"
   instance = google_sql_database_instance.main.name
+  name     = "todo"
 }
 
+# ---------------------------------------------------------------------------------
+# Cloud Run: API service
 resource "google_cloud_run_service" "api" {
   name     = "${var.deployment_name}-api"
   provider = google-beta
@@ -209,7 +229,6 @@ resource "google_cloud_run_service" "api" {
       service_account_name = google_service_account.runsa.email
       containers {
         image = local.api_image
-
         dynamic "env" {
           for_each = var.database_type == "postgresql" ? local.api_env_vars_postgresql : local.api_env_vars_mysql
           content {
@@ -217,11 +236,11 @@ resource "google_cloud_run_service" "api" {
             value = env.value
           }
         }
-
-        ports { container_port = 80 }
+        ports {
+          container_port = 80
+        }
       }
     }
-
     metadata {
       annotations = {
         "run.googleapis.com/cloudsql-instances"   = google_sql_database_instance.main.connection_name
@@ -233,13 +252,15 @@ resource "google_cloud_run_service" "api" {
   }
 
   autogenerate_revision_name = true
-
   traffic {
-    percent = 100
+    percent         = 100
     latest_revision = true
   }
+  depends_on = [google_sql_user.main, google_sql_database.database]
 }
 
+# ---------------------------------------------------------------------------------
+# Cloud Run: Frontend service
 resource "google_cloud_run_service" "fe" {
   name     = "${var.deployment_name}-fe"
   provider = google-beta
@@ -250,7 +271,7 @@ resource "google_cloud_run_service" "fe" {
     spec {
       service_account_name = google_service_account.runsa.email
       containers {
-        image = local.fe_image
+        image           = local.fe_image
         ports { container_port = 80 }
         env {
           name  = "ENDPOINT"
@@ -258,21 +279,21 @@ resource "google_cloud_run_service" "fe" {
         }
       }
     }
-
     metadata {
       annotations = { "autoscaling.knative.dev/maxScale" = "8" }
-      labels = var.labels
+      labels      = var.labels
     }
   }
 
   autogenerate_revision_name = true
-
   traffic {
-    percent = 100
+    percent         = 100
     latest_revision = true
   }
 }
 
+# ---------------------------------------------------------------------------------
+# Public IAM bindings
 resource "google_cloud_run_service_iam_member" "noauth_api" {
   service  = google_cloud_run_service.api.name
   location = google_cloud_run_service.api.location
