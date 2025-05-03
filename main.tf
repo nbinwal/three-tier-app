@@ -180,14 +180,16 @@ resource "google_sql_user" "main" {
   instance       = google_sql_database_instance.main.name
   deletion_policy = "ABANDON"
 
-  name = (
-    var.database_type == "postgresql" 
-    ? "${google_service_account.runsa.account_id}@${var.project_id}.iam" 
-    : "foo"
-  )
+  name = var.database_type == "postgresql" ? 
+    "${google_service_account.runsa.account_id}@${var.project_id}.iam" : 
+    "foo"
 
   type = var.database_type == "postgresql" ? "CLOUD_IAM_SERVICE_ACCOUNT" : null
-  password = var.database_type == "mysql" ? var.mysql_password : null
+  
+  password = var.database_type == "mysql" ? data.google_secret_manager_secret_version.db_password[0].secret_data : null
+  
+  # Add dependency on secret version
+  depends_on = [google_secret_manager_secret_version.db_password]
 }
 
 resource "google_sql_database" "database" {
