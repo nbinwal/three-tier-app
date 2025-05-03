@@ -26,9 +26,6 @@ deployment_name = "three-tier-app"
 # Choose either "postgresql" or "mysql"
 database_type   = "postgresql"
 
-# Password for Postgres (only if database_type = "postgresql")
-pg_password     = "YOUR_SECURE_PG_PASSWORD"
-
 # Password for MySQL (only if database_type = "mysql")
 # mysql_password = "YOUR_SECURE_MYSQL_PASSWORD"
 
@@ -40,7 +37,7 @@ run_roles_list = [
   "roles/iam.serviceAccountUser",
   "roles/cloudsql.client",
   "roles/redis.viewer",
-  "roles/secretmanager.secretAccessor",
+  "roles/secretmanager.secretAccessor"
 ]
 
 # Labels for all resources
@@ -48,7 +45,6 @@ labels = {
   environment = "dev"
   project     = "three-tier-app"
 }
-
 
 ```
 Terraform will automatically load `terraform.tfvars` during plan and apply  ([three-tier-app/variables.tf at main · nbinwal/three-tier-app · GitHub](https://github.com/nbinwal/three-tier-app/blob/main/variables.tf)).
