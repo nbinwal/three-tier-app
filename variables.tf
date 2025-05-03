@@ -17,24 +17,24 @@ variable "zone" {
 
 variable "deployment_name" {
   type        = string
-  description = "The name of this particular deployment, will get added as a prefix to most resources."
+  description = "The name of this deployment; prefix for resources"
   default     = "three-tier-app"
 }
 
 variable "database_type" {
   type        = string
-  description = "Cloud SQL Database flavor: either 'mysql' or 'postgresql'"
+  description = "Cloud SQL flavor: 'mysql' or 'postgresql'"
   default     = "postgresql"
   validation {
     condition     = contains(["mysql", "postgresql"], var.database_type)
-    error_message = "database_type must be either 'mysql' or 'postgresql'."
+    error_message = "Must be either 'mysql' or 'postgresql'."
   }
 }
 
 variable "labels" {
   type        = map(string)
-  description = "A map of labels to apply to all resources"
-  default     = {
+  description = "Labels to apply to all resources"
+  default = {
     environment = "dev"
     project     = "three-tier-app"
   }
@@ -42,12 +42,12 @@ variable "labels" {
 
 variable "enable_apis" {
   type        = bool
-  description = "Whether or not to enable required GCP APIs"
+  description = "Enable required GCP APIs"
   default     = true
 }
 
 variable "run_roles_list" {
-  description = "List of IAM roles to grant to the Cloud Run service account"
+  description = "IAM roles to grant to the Cloud Run service account"
   type        = list(string)
   default     = [
     "roles/iam.serviceAccountUser",
@@ -59,12 +59,12 @@ variable "run_roles_list" {
 
 variable "mysql_password" {
   type        = string
-  description = "The password for the MySQL user (only used when database_type = 'mysql')"
+  description = "MySQL user password (when database_type = 'mysql')"
   sensitive   = true
 }
 
 variable "pg_password" {
   type        = string
-  description = "The password for the PostgreSQL user (only used when database_type = 'postgresql')"
+  description = "PostgreSQL user password (when database_type = 'postgresql')"
   sensitive   = true
 }
