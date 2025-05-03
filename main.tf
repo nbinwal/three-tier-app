@@ -230,7 +230,7 @@ resource "google_cloud_run_service" "api" {
       containers {
         image = local.api_image
         ports {
-          container_port = 8080
+          container_port = 80
         }
         dynamic "env" {
           for_each = var.database_type == "postgresql" ? local.api_env_vars_postgresql : local.api_env_vars_mysql
