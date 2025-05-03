@@ -17,7 +17,6 @@ locals {
     db_conn    = google_sql_database_instance.main.connection_name
     db_name    = "todo"
     redis_port = "6379"
-    PORT       = "8080"
   }
 
   api_env_vars_mysql = {
@@ -27,7 +26,6 @@ locals {
     todo_pass = var.database_type == "mysql" ? data.google_secret_manager_secret_version.db_password[0].secret_data : ""
     todo_name = "todo"
     REDISPORT = "6379"
-    PORT      = "8080"
   }
 }
 
