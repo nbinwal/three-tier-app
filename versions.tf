@@ -19,8 +19,8 @@ terraform {
       version = "~> 0.12.0"
     }
   }
-}
 
-provider_meta "google" {
-  module_name = "blueprints/terraform/terraform-google-three-tier-web-app/v0.1.9"
+  provider_meta "google" {
+    module_name = "blueprints/terraform/terraform-google-three-tier-web-app/v0.1.9"
+  }
 }
