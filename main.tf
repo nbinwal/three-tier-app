@@ -75,10 +75,10 @@ resource "google_secret_manager_secret_version" "db_password" {
   secret_data = var.mysql_password
 }
 
-data "google_secret_manager_secret_version" "db_password" {
-  count   = var.database_type == "mysql" ? 1 : 0
-  secret  = google_secret_manager_secret.db_password[0].name
-}
+#data "google_secret_manager_secret_version" "db_password" {
+ # count   = var.database_type == "mysql" ? 1 : 0
+  #secret  = google_secret_manager_secret.db_password[0].name
+#}
 
 resource "google_compute_network" "main" {
   provider                = google-beta
