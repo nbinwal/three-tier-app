@@ -233,19 +233,17 @@ resource "google_cloud_run_service" "api" {
             value = env.value
           }
         }
-        ports {
-          container_port = 8080
-        }
+        # Remove explicit ports: let Cloud Run default to port 8080
       }
     }
     metadata {
       annotations = {
-        "autoscaling.knative.dev/maxScale"      = "8"
-        "run.googleapis.com/cloudsql-instances" = google_sql_database_instance.main.connection_name
-        "run.googleapis.com/client-name"        = "terraform"
-        "run.googleapis.com/vpc-access-egress"  = "all"
-        "run.googleapis.com/vpc-access-connector" = google_vpc_access_connector.main.id
-        "run.googleapis.com/startup-cpu-boost"  = "true"
+        "autoscaling.knative.dev/maxScale"         = "8"
+        "run.googleapis.com/cloudsql-instances"    = google_sql_database_instance.main.connection_name
+        "run.googleapis.com/client-name"           = "terraform"
+        "run.googleapis.com/vpc-access-egress"     = "all"
+        "run.googleapis.com/vpc-access-connector"  = google_vpc_access_connector.main.id
+        "run.googleapis.com/startup-cpu-boost"     = "true"
       }
       labels = {
         "run.googleapis.com/startupProbeType" = "Default"
@@ -258,7 +256,7 @@ resource "google_cloud_run_service" "api" {
   }
 
   autogenerate_revision_name = true
-  depends_on = [google_sql_user.main, google_sql_database.database]
+  depends_on                 = [google_sql_user.main, google_sql_database.database]
 }
 
 # ---------------------------------------------------------------------------------
