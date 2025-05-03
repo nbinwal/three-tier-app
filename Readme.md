@@ -18,16 +18,11 @@ This repository contains: `main.tf`, `variables.tf`, `outputs.tf`, and `versions
 ## 2. Configure Environment Variables  
 Create a `terraform.tfvars` file at the root with your parameters:
 ```hcl
-project_id      = "YOUR_GCP_PROJECT_ID"
-region          = "us-central1"
-zone            = "us-central1-a"
+project_id      = "trusty-stacker-453107-i1"
 deployment_name = "three-tier-app"
 
 # Choose either "postgresql" or "mysql"
 database_type   = "postgresql"
-
-# Password for MySQL (only if database_type = "mysql")
-# mysql_password = "YOUR_SECURE_MYSQL_PASSWORD"
 
 # Enable required APIs
 enable_apis = true
