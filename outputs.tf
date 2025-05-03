@@ -1,5 +1,3 @@
-# Outputs: These values will be displayed after `terraform apply` or can be referenced by other configurations.
-
 output "endpoint" {
   description = "The URL of the deployed frontend (Cloud Run service 'fe')"
   value       = google_cloud_run_service.fe.status[0].url
@@ -12,7 +10,7 @@ output "sql_instance_name" {
 
 output "secret_manager_password_secret" {
   description = "The resource name of the Secret Manager secret holding the DB password"
-  value       = google_secret_manager_secret.db_password.name
+  value       = var.database_type == "mysql" ? google_secret_manager_secret.db_password[0].name : null
 }
 
 output "in_console_tutorial_url" {
