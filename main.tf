@@ -236,10 +236,6 @@ resource "google_cloud_run_service" "api" {
             value = env.value
           }
         }
-        env {
-          name  = "PORT"
-          value = "8080"
-        }
         ports {
           container_port = 8080
         }
@@ -258,68 +254,3 @@ resource "google_cloud_run_service" "api" {
         "run.googleapis.com/startupProbeType" = "Default"
       }
     }
-  }
-
-  metadata {
-    labels = var.labels
-  }
-
-  autogenerate_revision_name = true
-  depends_on                 = [google_sql_user.main, google_sql_database.database]
-}
-
-# ---------------------------------------------------------------------------------
-# Resource: Cloud Run service for the Frontend (FE)
-resource "google_cloud_run_service" "fe" {
-  name     = "${var.deployment_name}-fe"
-  location = var.region
-  project  = var.project_id
-
-  template {
-    spec {
-      service_account_name = google_service_account.runsa.email
-      containers {
-        image = local.fe_image
-        ports {
-          container_port = 80
-        }
-        env {
-          name  = "ENDPOINT"
-          value = google_cloud_run_service.api.status[0].url
-        }
-      }
-    }
-    metadata {
-      annotations = {
-        "autoscaling.knative.dev/maxScale" = "8"
-      }
-      labels = {
-        "run.googleapis.com/startupProbeType" = "Default"
-      }
-    }
-  }
-
-  metadata {
-    labels = var.labels
-  }
-}
-
-# ---------------------------------------------------------------------------------
-# Allow unauthenticated (public) access to the API Cloud Run service
-resource "google_cloud_run_service_iam_member" "noauth_api" {
-  location = google_cloud_run_service.api.location
-  project  = google_cloud_run_service.api.project
-  service  = google_cloud_run_service.api.name
-  role     = "roles/run.invoker"
-  member   = "allUsers"
-}
-
-# ---------------------------------------------------------------------------------
-# Allow unauthenticated (public) access to the Frontend Cloud Run service
-resource "google_cloud_run_service_iam_member" "noauth_fe" {
-  location = google_cloud_run_service.fe.location
-  project  = google_cloud_run_service.fe.project
-  service  = google_cloud_run_service.fe.name
-  role     = "roles/run.invoker"
-  member   = "allUsers"
-}
