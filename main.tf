@@ -59,6 +59,14 @@ resource "google_service_account" "runsa" {
   display_name = "Service Account for Cloud Run"
 }
 
+resource "null_resource" "wait_for_iam_propagation" {
+  depends_on = [google_service_account.runsa]
+
+  provisioner "local-exec" {
+    command = "sleep 30"
+  }
+}
+
 resource "google_project_iam_member" "runsa_roles" {
   for_each = toset(var.run_roles_list)
   project  = data.google_project.project.number
