@@ -17,6 +17,7 @@ locals {
     db_conn    = google_sql_database_instance.main.connection_name
     db_name    = "todo"
     redis_port = "6379"
+    PORT       = "8080"
   }
 
   api_env_vars_mysql = {
@@ -26,6 +27,7 @@ locals {
     todo_pass = var.database_type == "mysql" ? data.google_secret_manager_secret_version.db_password[0].secret_data : ""
     todo_name = "todo"
     REDISPORT = "6379"
+    PORT      = "8080"
   }
 }
 
@@ -229,7 +231,9 @@ resource "google_cloud_run_service" "api" {
       service_account_name = google_service_account.runsa.email
       containers {
         image = local.api_image
-
+        ports {
+          container_port = 8080
+        }
         dynamic "env" {
           for_each = var.database_type == "postgresql" ? local.api_env_vars_postgresql : local.api_env_vars_mysql
           content {
@@ -246,6 +250,7 @@ resource "google_cloud_run_service" "api" {
         "run.googleapis.com/client-name"           = "terraform"
         "run.googleapis.com/vpc-access-egress"     = "all"
         "run.googleapis.com/vpc-access-connector"  = google_vpc_access_connector.main.id
+        "run.googleapis.com/startup-cpu-boost"     = "true"
       }
       labels = {
         "run.googleapis.com/startupProbeType" = "Default"
