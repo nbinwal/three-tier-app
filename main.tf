@@ -1,27 +1,43 @@
-############################################
-# main.tf (updated for conditional password auth)
-############################################
+terraform {
+  required_version = ">= 1.0.0"
+
+  required_providers {
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 4.0"
+    }
+    google-beta = {
+      source  = "hashicorp/google-beta"
+      version = "~> 4.0"
+    }
+  }
+}
+
+provider "google" {
+  project = var.project_id
+  region  = var.region
+}
+
+provider "google-beta" {
+  project = var.project_id
+  region  = var.region
+}
 
 data "google_project" "project" {
   project_id = var.project_id
 }
 
-# ----------------------------------------------------------------
-# Locals: choose images based on database type
-# ----------------------------------------------------------------
 locals {
-  api_image = var.database_type == "mysql" ? "gcr.io/sic-container-repo/todo-api" : "gcr.io/sic-container-repo/todo-api-postgres:latest"
-  fe_image  = "gcr.io/sic-container-repo/todo-fe"
+  api_image = var.database_type == "mysql"
+    ? "gcr.io/sic-container-repo/todo-api"
+    : "gcr.io/sic-container-repo/todo-api-postgres:latest"
+  fe_image = "gcr.io/sic-container-repo/todo-fe"
 }
 
-# ----------------------------------------------------------------
-# Project Services Module
-# ----------------------------------------------------------------
 module "project-services" {
   source  = "terraform-google-modules/project-factory/google//modules/project_services"
   version = "18.0.0"
 
-  disable_services_on_destroy = false
   project_id                  = var.project_id
   enable_apis                 = var.enable_apis
   activate_apis = [
@@ -36,11 +52,9 @@ module "project-services" {
     "secretmanager.googleapis.com",
     "iamcredentials.googleapis.com"
   ]
+  disable_services_on_destroy = false
 }
 
-# ----------------------------------------------------------------
-# Service account for Cloud Run
-# ----------------------------------------------------------------
 resource "google_service_account" "runsa" {
   project      = var.project_id
   account_id   = "${var.deployment_name}-run-sa"
@@ -54,9 +68,6 @@ resource "google_project_iam_member" "runsa_roles" {
   member   = "serviceAccount:${google_service_account.runsa.email}"
 }
 
-# ----------------------------------------------------------------
-# Secrets: only when using MySQL or Postgres
-# ----------------------------------------------------------------
 resource "google_secret_manager_secret" "db_password" {
   count     = var.database_type == "mysql" || var.database_type == "postgresql" ? 1 : 0
   secret_id = "${var.deployment_name}-db-password"
@@ -76,9 +87,6 @@ data "google_secret_manager_secret_version" "db_password" {
   version = "latest"
 }
 
-# ----------------------------------------------------------------
-# VPC, Redis, SQL Instance, etc...
-# ----------------------------------------------------------------
 resource "google_compute_network" "main" {
   provider                = google-beta
   name                    = "${var.deployment_name}-private-network"
@@ -161,14 +169,12 @@ resource "google_sql_database_instance" "main" {
     location_preference {
       zone = var.zone
     }
-    # We're using password auth, so no IAM database flags here.
   }
 
   deletion_protection = false
   depends_on          = [google_service_networking_connection.main]
 }
 
-# SQL Users
 resource "google_sql_user" "mysql_user" {
   count    = var.database_type == "mysql" ? 1 : 0
   project  = var.project_id
@@ -192,5 +198,4 @@ resource "google_sql_database" "database" {
   deletion_policy = "ABANDON"
 }
 
-# Cloud Run Services (API + FE)...
-# ...no other changes here
+# Cloud Run Services (API + FE)… no further changes here
