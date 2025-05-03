@@ -20,25 +20,22 @@ Create a `terraform.tfvars` file at the root with your parameters:
 ```hcl
 project_id      = "trusty-stacker-453107-i1"
 deployment_name = "three-tier-app"
-
-# Choose either "postgresql" or "mysql"
 database_type   = "postgresql"
+enable_apis     = true
 
-# Enable required APIs
-enable_apis = true
-
-# IAM roles for the Cloud Run service account
+# Updated IAM roles matching the service account requirements
 run_roles_list = [
-  "roles/iam.serviceAccountUser",
+  "roles/cloudsql.instanceUser",
   "roles/cloudsql.client",
-  "roles/redis.viewer",
-  "roles/secretmanager.secretAccessor"
+  "roles/secretmanager.secretAccessor",
+  "roles/iam.serviceAccountUser",
+  "roles/redis.viewer"  # Keep if you need view access to Redis
 ]
 
-# Labels for all resources
 labels = {
   environment = "dev"
   project     = "three-tier-app"
+  managed-by  = "terraform"
 }
 
 ```
