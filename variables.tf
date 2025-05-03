@@ -1,5 +1,3 @@
-# Variables: Parameters for customizing the deployment.
-
 variable "project_id" {
   type        = string
   description = "The project ID to deploy to."
@@ -29,7 +27,6 @@ variable "database_type" {
   default     = "postgresql"
 
   validation {
-    # Ensure only 'mysql' or 'postgresql' are allowed
     condition     = contains(["mysql", "postgresql"], var.database_type)
     error_message = "Must be either \"mysql\" or \"postgresql\"."
   }
@@ -60,7 +57,12 @@ variable "run_roles_list" {
 
 variable "mysql_password" {
   type        = string
-  description = "The password for the MySQL user (only used if database_type = \"mysql\")."
+  description = "The password for the MySQL user (required if database_type = \"mysql\")."
   sensitive   = true
-  default     = "CHANGE_ME"
+  default     = null
+
+  validation {
+    condition     = var.database_type != "mysql" || (var.database_type == "mysql" && var.mysql_password != null)
+    error_message = "mysql_password is required when database_type is 'mysql'"
+  }
 }
