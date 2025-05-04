@@ -159,7 +159,7 @@ terraform output endpoint
 
 ### Configure Cloud SQL Access
 
-1. SSH into a private‑IP VM:
+1. Create a private IP VM for testing and SSH into the private‑IP VM:
 
    ```bash
    gcloud compute ssh test-3tierweb-app \
@@ -176,6 +176,7 @@ terraform output endpoint
    ./cloud_sql_proxy \
      -instances=trusty-stacker-453107-i1:asia-south1:three-tier-app-db-8463=tcp:5432 &
    ```
+Refer https://cloud.google.com/sql/docs/postgres/connect-auth-proxy#start-proxy for public doc
 
 Keep the proxy running in a separate terminal.
 
