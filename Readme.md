@@ -18,10 +18,8 @@ This repository contains: `main.tf`, `variables.tf`, `outputs.tf`, and `versions
 ## 2. Configure Environment Variables  
 Create a `terraform.tfvars` file at the root with your parameters:
 ```hcl
-project_id      = "YOUR_GCP_PROJECT_ID"
 region          = "asia-south1"
 zone            = "asia-south1-a"
-deployment_name = "three-tier-app"
 
 # Choose ONE database type (comment/uncomment as needed)
 database_type   = "postgresql"  # For PostgreSQL
