@@ -79,7 +79,7 @@ terraform plan -out=tfplan
 
 ## 6. Apply Terraform Configuration  
 ```bash
-terraform apply tfplan
+terraform apply -var-file="terraform.tfvars"
 ```
 - Provisions all GCP resources: VPC, Redis, Cloud SQL, IAM, Secret Manager, Cloud Run, etc.  
 - Use `-auto-approve` to skip confirmation if desired  ([terraform apply command reference - HashiCorp Developer](https://developer.hashicorp.com/terraform/cli/commands/apply?utm_source=chatgpt.com)).
