@@ -19,28 +19,36 @@ This repository contains: `main.tf`, `variables.tf`, `outputs.tf`, and `versions
 Create a `terraform.tfvars` file at the root with your parameters:
 ```hcl
 project_id      = "YOUR_GCP_PROJECT_ID"
-region          = "us-central1"
-zone            = "us-central1-a"
+region          = "asia-south1"
+zone            = "asia-south1-a"
 deployment_name = "three-tier-app"
 
-# Choose "postgresql" or "mysql"
-database_type   = "postgresql"
+# Choose ONE database type (comment/uncomment as needed)
+database_type   = "postgresql"  # For PostgreSQL
+#database_type   = "mysql"      # For MySQL
 
-# PostgreSQL password (only if database_type = "postgresql")
-pg_password     = "YOUR_SECURE_PG_PASSWORD"
-
-# MySQL password (only if database_type = "mysql")
-# mysql_password = "YOUR_SECURE_MYSQL_PASSWORD"
-
-# Enable required APIs
+project_id      = "trusty-stacker-453107-i1"
+deployment_name = "three-tier-app"
 enable_apis     = true
 
-# (Optional) List of IAM roles to attach to the Run service account
-default_run_roles = [
-  "roles/iam.serviceAccountUser",
+# Only required for MySQL (comment when using PostgreSQL)
+#mysql_password  = "whatever"
+
+# IAM roles (automatically adjusts based on database type)
+run_roles_list = [
+  "roles/cloudsql.instanceUser",
   "roles/cloudsql.client",
+  "roles/iam.serviceAccountUser",
   "roles/redis.viewer",
-  "roles/secretmanager.secretAccessor"
+  # Uncomment next line for MySQL
+  #"roles/secretmanager.secretAccessor"  
+]
+
+labels = {
+  environment = "dev",
+  project     = "three-tier-app",
+  managed-by  = "terraform"
+}
 ]
 
 # Labels to apply to resources
