@@ -172,98 +172,89 @@ This section details the steps to perform load testing on the deployed applicati
 
 Save the following code as `locustfile.py` in your working directory.
 
-* **Important:**
-    * Update `DB_CONFIG` with your actual database `password`.
-    * Update `FrontendUser.host` with your actual frontend Cloud Run URL.
-    * Update `TodoUser.host` with your actual backend API Cloud Run URL.
-
-```python
-from locust import HttpUser, User, task, between
+from locust import HttpUser, task, between
 import psycopg2
 import random
 import time
 
-# --- IMPORTANT: Update these connection details ---
-DB_CONFIG = {
-    "host": "127.0.0.1",  # Connect via Cloud SQL Proxy
-    "port": 5432,
-    "dbname": "todo",
-    "user": "postgres",
-    "password": "Newpassword" # <-- REPLACE WITH YOUR ACTUAL DB PASSWORD
-}
-
-FRONTEND_URL = "[https://three-tier-app-fe-qlxblrcnua-el.a.run.app](https://three-tier-app-fe-qlxblrcnua-el.a.run.app)" # <-- REPLACE WITH YOUR FRONTEND URL
-BACKEND_API_URL = "[https://three-tier-app-api-815139404174.asia-south1.run.app](https://three-tier-app-api-815139404174.asia-south1.run.app)" # <-- REPLACE WITH YOUR BACKEND API URL
-# --- End of update section ---
-
+# --- Update these URLs to your deployed services ---
+FRONTEND_URL = "https://three-tier-app-fe-1049385999004.asia-south1.run.app"
+API_URL = "https://three-tier-app-api-zfm42p5nvq-el.a.run.app"
+# -----------------------------------------------
 
 class FrontendUser(HttpUser):
     host = FRONTEND_URL
-    wait_time = between(1,3)
+    wait_time = between(1, 1)
 
-    @task(3)
-    def index(self):
+    @task
+    def load_frontend(self):
+        # Test the root endpoint of the frontend
         self.client.get("/", name="GET /")
 
+class ApiUser(HttpUser):
+    host = API_URL
+    # Wait 0.5s between tasks: ~4 RPS per user
+    wait_time = between(0.5, 0.5)
 
-class TodoUser(HttpUser):
-    wait_time = between(1, 3)
-    host = BACKEND_API_URL
-
-    @task(4)
+    @task(1)
     def list_todos(self):
+        # Test listing todos
         self.client.get("/api/v1/todo", name="GET /api/v1/todo")
 
     @task(1)
     def create_todo(self):
-        title = f"Load test task #{random.randint(1,10000)}"
+        # Test creating a new todo
+        title = f"Load test task #{random.randint(1, 10000)}"
         self.client.post(
             "/api/v1/todo",
-            data={"title": title},
+            json={"title": title},
             name="POST /api/v1/todo",
             timeout=10
         )
 
-
-class DBLoadUser(User):
+class DBLoadUser(HttpUser):
+    host = API_URL
     wait_time = between(1, 3)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.conn = None
         self.cursor = None
-        try:
-            self.conn = psycopg2.connect(**DB_CONFIG)
-            self.cursor = self.conn.cursor()
-        except psycopg2.OperationalError as e:
-            print(f"DB connection failed: {e}")
-            # Handle connection error appropriately, maybe exit locust?
-            # For now, we just won't execute tasks if connection fails
-            pass
-
+        retries = 3
+        for attempt in range(retries):
+            try:
+                # Connect via Cloud SQL Proxy
+                self.conn = psycopg2.connect(
+                    host="127.0.0.1", port=5432, dbname="todo",
+                    user="postgres", password="Newpassword"
+                )
+                self.cursor = self.conn.cursor()
+                break
+            except psycopg2.OperationalError as e:
+                print(f"DB connection failed: {e}. Retrying ({attempt+1}/{retries})...")
+                time.sleep(5)
 
     @task
     def query_db(self):
         if not self.cursor or not self.conn:
-            # Skip task if connection failed during init
+            # Skip task if connection failed
             print("Skipping DB task due to connection issue.")
-            time.sleep(self.wait_time()) # Still wait to avoid busy-looping
             return
 
         start = time.time()
         try:
             self.cursor.execute("SELECT * FROM loadtest_table LIMIT 10")
-            # Fetching results might be more realistic, but depends on test goals
-            # results = self.cursor.fetchall()
-            self.conn.commit() # Not strictly necessary for SELECT, but good practice
+            results = self.cursor.fetchall()
+            print(f"Fetched {len(results)} rows")
+            self.conn.commit()
             rt = int((time.time() - start) * 1000)
             self.environment.events.request.fire(
                 request_type="db",
                 name="SELECT loadtest_table",
                 response_time=rt,
-                response_length=0, # Adjust if fetching data
+                response_length=0,
                 exception=None,
-                context=self.user_context() # Pass user context if needed
+                context=self.user_context()
             )
         except Exception as e:
             rt = int((time.time() - start) * 1000)
@@ -273,15 +264,8 @@ class DBLoadUser(User):
                 response_time=rt,
                 response_length=0,
                 exception=e,
-                context=self.user_context() # Pass user context if needed
+                context=self.user_context()
             )
-            # Optional: Reconnect or handle specific errors
-            # try:
-            #    self.conn.rollback() # Rollback in case of error during transaction
-            # except psycopg2.InterfaceError:
-                 # Handle case where connection might be closed
-            #    pass
-
 
     def on_stop(self):
         if self.cursor:
@@ -289,14 +273,15 @@ class DBLoadUser(User):
         if self.conn:
             self.conn.close()
 
-    # Helper to provide context for events if needed
     def user_context(self):
-        return {"user_id": self.environment.runner.user_id if self.environment.runner else "N/A"}
+        # Safely get user_id if available
+        user_id = getattr(self.environment.runner, 'user_id', 'N/A')
+        return {"user_id": user_id}
 
   3.  **Run the locust test:**
 
       Example for 20 users, spawning 5 per second, running for 3 minutes:
-      locust --headless --users 20 --spawn-rate 5 --run-time 3m -f locustfile.py --only-summary
+      locust --headless   --users 20   --spawn-rate 20   --run-time 5m   -f locustfile.py   --only-summary
 
 ## 9. Cleanup  
 To destroy all resources created by this Terraform configuration:
