@@ -133,9 +133,7 @@ This section details the steps to perform load testing on the deployed applicati
 
     # Start Cloud SQL Proxy in the background
     # Replace project ID, region, and instance name if different
-    ./cloud_sql_proxy \
-      -instances="three-tier-web-app-457409:us-central1:three-tier-app-db-4097=tcp:5432" \
-      -ip_address_types=PUBLIC &
+    Refer https://cloud.google.com/sql/docs/postgres/connect-auth-proxy#start-proxy
     ```
     *Note: Keep the Cloud SQL Proxy running in a separate terminal or as a background process during testing.*
 
