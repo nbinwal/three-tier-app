@@ -114,21 +114,10 @@ This section details the steps to perform load testing on the deployed applicati
 ### Setup and Configuration
 
 1.  **Configure Cloud SQL Database Access:**
-    * Assign a public IP to your Cloud SQL instance (`three-tier-app-db-4097`).
-    * Authorize your current external IP address to connect.
+    * Spin up a private IP VM in the same VPC as the Cloud SQL Instance.
     * Download and set up the Cloud SQL Proxy.
 
     ```bash
-    # Assign Public IP to Cloud SQL instance
-    gcloud sql instances patch three-tier-app-db-4097 --assign-ip --project three-tier-web-app-457409
-
-    # Get your external IP
-    export MY_IP=$(curl -s [https://ifconfig.me](https://ifconfig.me))
-    echo "My IP Address: $MY_IP"
-
-    # Authorize your IP for Cloud SQL (add to existing ones if needed)
-    gcloud sql instances patch three-tier-app-db-4097 --authorized-networks="${MY_IP}/32" --project three-tier-web-app-457409 --quiet
-
     # Download Cloud SQL Proxy
     wget [https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64](https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64) -O cloud_sql_proxy
     chmod +x cloud_sql_proxy
