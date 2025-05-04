@@ -121,6 +121,7 @@ This section details the steps to perform load testing on the deployed applicati
 
 1.  **Configure Cloud SQL Database Access:**
     * Spin up a private IP VM in the same VPC as the Cloud SQL Instance.
+    * Set Up Cloud Nat for that VM to communicate to the Internet.
     * Download and set up the Cloud SQL Proxy.
 
     ```bash
