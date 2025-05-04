@@ -125,6 +125,11 @@ This section details the steps to perform load testing on the deployed applicati
     * Download and set up the Cloud SQL Proxy.
 
     ```bash
+    #SSH into VM
+    gcloud compute ssh test-3tierweb-app \
+  --zone=asia-south1-a \
+  --tunnel-through-iap
+
     # Download Cloud SQL Proxy
     wget https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 -O cloud_sql_proxy
     chmod +x cloud_sql_proxy
