@@ -1,46 +1,48 @@
 
+
+---
+
 # Three‑Tier App Deployment on Google Cloud with Terraform
 
-This repository provisions a three‑tier web application on Google Cloud using Terraform.  
+This repository provisions a three‑tier web application on Google Cloud using Terraform.
 It includes a Cloud Run frontend & API, Redis, Cloud SQL (PostgreSQL/MySQL), Secret Manager, VPC access, and IAM roles.
 
 ---
 
 ## Table of Contents
 
-- [Prerequisites](#prerequisites)  
-- [Clone the Repository](#clone-the-repository)  
-- [Configure Environment Variables](#configure-environment-variables)  
-- [Authenticate with GCP](#authenticate-with-gcp)  
-- [Initialize Terraform](#initialize-terraform)  
-- [Review the Execution Plan](#review-the-execution-plan)  
-- [Apply Terraform Configuration](#apply-terraform-configuration)  
-- [View Outputs](#view-outputs)  
-- [Load Testing with Locust](#load-testing-with-locust)  
-  - [Configure Cloud SQL Access](#configure-cloud-sql-access)  
-  - [Set DB Password & Create Table](#set-db-password--create-table)  
-  - [Locustfile](#locustfile)  
-  - [Run Locust](#run-locust)  
-- [Frontend and Middle Tier Testing from External User Perspective](#frontend-and-middle-tier-testing-from-external-user-perspective)  
-- [Cleanup](#cleanup)  
-- [References](#references)  
-- [License](#license)  
+* [Prerequisites](#prerequisites)
+* [Clone the Repository](#clone-the-repository)
+* [Configure Environment Variables](#configure-environment-variables)
+* [Authenticate with GCP](#authenticate-with-gcp)
+* [Initialize Terraform](#initialize-terraform)
+* [Review the Execution Plan](#review-the-execution-plan)
+* [Apply Terraform Configuration](#apply-terraform-configuration)
+* [View Outputs](#view-outputs)
+* [Load Testing with Locust](#load-testing-with-locust)
+
+  * [Configure Cloud SQL Access](#configure-cloud-sql-access)
+  * [Set DB Password & Create Table](#set-db-password--create-table)
+  * [Locustfile](#locustfile)
+  * [Run Locust](#run-locust)
+* [Cleanup](#cleanup)
+* [References](#references)
 
 ---
 
 ## Prerequisites
 
-- **Google Cloud SDK** installed and authenticated  
-  👉 [Authenticate with the gcloud CLI](https://cloud.google.com/docs/authentication/gcloud?utm_source=chatgpt.com)  
+* **Google Cloud SDK** installed and authenticated
+  👉 [Authenticate with the gcloud CLI](https://cloud.google.com/docs/authentication/gcloud)
 
-- **Terraform** (v1.5+) installed locally  
-  👉 [Terraform init docs](https://developer.hashicorp.com/terraform/cli/commands/init?utm_source=chatgpt.com)  
+* **Terraform** (v1.5+) installed locally
+  👉 [Terraform init docs](https://developer.hashicorp.com/terraform/cli/commands/init)
 
-- **Python 3** and **pip** installed (for Locust)  
-  👉 [Secret Manager rotation guide](https://cloud.google.com/secret-manager/docs/rotation-recommendations?utm_source=chatgpt.com)  
+* **Python 3** and **pip** installed (for Locust)
+  👉 [Secret Manager rotation guide](https://cloud.google.com/secret-manager/docs/rotation-recommendations)
 
-- A **GCP project** with billing enabled and Owner/Editor IAM roles  
-  👉 [GCP Auth documentation](https://gcloud.readthedocs.io/en/latest/google-cloud-auth.html?utm_source=chatgpt.com)  
+* A **GCP project** with billing enabled and Owner/Editor IAM roles
+  👉 [GCP Auth documentation](https://gcloud.readthedocs.io/en/latest/google-cloud-auth.html)
 
 ---
 
@@ -49,9 +51,9 @@ It includes a Cloud Run frontend & API, Redis, Cloud SQL (PostgreSQL/MySQL), Sec
 ```bash
 git clone https://github.com/nbinwal/three-tier-app.git
 cd three-tier-app
-````
+```
 
-This repo contains: `main.tf`, `variables.tf`, `outputs.tf`, `versions.tf`. ([GitHub][1])
+This repo contains: `main.tf`, `variables.tf`, `outputs.tf`, `versions.tf`.
 
 ---
 
@@ -94,7 +96,7 @@ event_labels = {
 }
 ```
 
-Terraform will automatically load `terraform.tfvars`. ([GitHub][1])
+Terraform will automatically load `terraform.tfvars`.
 
 ---
 
@@ -105,7 +107,7 @@ gcloud auth login
 gcloud config set project YOUR_GCP_PROJECT_ID
 ```
 
-On Compute Engine VMs, Application Default Credentials (ADC) are used automatically. ([GitHub][1])
+On Compute Engine VMs, Application Default Credentials (ADC) are used automatically.
 
 ---
 
@@ -160,7 +162,7 @@ terraform output endpoint
 
 ### Configure Cloud SQL Access
 
-1. SSH into a private‑IP VM:
+1. Create a private IP VM for testing and SSH into the private‑IP VM:
 
    ```bash
    gcloud compute ssh test-3tierweb-app \
@@ -178,7 +180,9 @@ terraform output endpoint
      -instances=trusty-stacker-453107-i1:asia-south1:three-tier-app-db-8463=tcp:5432 &
    ```
 
-Keep the proxy running in a separate terminal. ([GitHub][1])
+Refer [Cloud SQL Proxy Documentation](https://cloud.google.com/sql/docs/postgres/connect-auth-proxy#start-proxy) for public doc
+
+Keep the proxy running in a separate terminal.
 
 ### Set DB Password & Create Table
 
@@ -308,7 +312,23 @@ class DBLoadUser(HttpUser):
             self.conn.close()
 ```
 
+### Run Locust
+
+```bash
+locust --headless --users 20 --spawn-rate 20 --run-time 5m \
+      -f locustfile.py --only-summary
+```
+
 ---
+
+## Cleanup
+
+```bash
+terraform destroy -auto-approve
+```
+
+---
+
 
 ## Frontend and Middle Tier Testing from External User Perspective
 
