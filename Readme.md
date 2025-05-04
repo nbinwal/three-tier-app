@@ -125,7 +125,7 @@ This section details the steps to perform load testing on the deployed applicati
 
     ```bash
     # Download Cloud SQL Proxy
-    wget [https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64](https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64) -O cloud_sql_proxy
+    wget https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 -O cloud_sql_proxy
     chmod +x cloud_sql_proxy
 
     # Stop any existing proxy process
