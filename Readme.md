@@ -212,7 +212,100 @@ GRANT SELECT ON loadtest_table TO postgres;
 Save this as `locustfile.py`:
 
 ```python
-# [locust file content as before...]
+from locust import HttpUser, task, between
+import psycopg2
+import random
+import time
+
+# Update these URLs to match your deployed services:
+FRONTEND_URL = "https://three-tier-app-fe-1049385999004.asia-south1.run.app"
+API_URL      = "https://three-tier-app-api-zfm42p5nvq-el.a.run.app"
+
+class FrontendUser(HttpUser):
+    host      = FRONTEND_URL
+    wait_time = between(1, 1)
+
+    @task
+    def load_frontend(self):
+        self.client.get("/", name="GET /")
+
+class ApiUser(HttpUser):
+    host      = API_URL
+    wait_time = between(0.5, 0.5)
+
+    @task(1)
+    def list_todos(self):
+        self.client.get("/api/v1/todo", name="GET /api/v1/todo")
+
+    @task(1)
+    def create_todo(self):
+        title = f"Load test task #{random.randint(1, 10000)}"
+        self.client.post(
+            "/api/v1/todo",
+            json={"title": title},
+            name="POST /api/v1/todo",
+            timeout=10
+        )
+
+class DBLoadUser(HttpUser):
+    host      = API_URL
+    wait_time = between(1, 3)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.conn   = None
+        self.cursor = None
+        retries = 3
+        for attempt in range(retries):
+            try:
+                # Connect via Cloud SQL Proxy (must be running locally)
+                self.conn = psycopg2.connect(
+                    host="127.0.0.1", port=5432, dbname="todo",
+                    user="postgres", password="Newpassword"
+                )
+                self.cursor = self.conn.cursor()
+                break
+            except psycopg2.OperationalError as e:
+                print(f"DB connection failed: {e}. Retrying ({attempt+1}/{retries})...")
+                time.sleep(5)
+
+    @task
+    def query_db(self):
+        if not self.cursor or not self.conn:
+            print("Skipping DB task due to connection issue.")
+            return
+
+        start = time.time()
+        try:
+            self.cursor.execute("SELECT * FROM loadtest_table LIMIT 10")
+            _ = self.cursor.fetchall()
+            self.conn.commit()
+            rt = int((time.time() - start) * 1000)
+            self.environment.events.request.fire(
+                request_type="db",
+                name="SELECT loadtest_table",
+                response_time=rt,
+                response_length=0,
+                exception=None,
+                context={"user_id": getattr(self.environment.runner, 'user_id', 'N/A')}
+            )
+        except Exception as e:
+            rt = int((time.time() - start) * 1000)
+            self.environment.events.request.fire(
+                request_type="db",
+                name="SELECT loadtest_table",
+                response_time=rt,
+                response_length=0,
+                exception=e,
+                context={"user_id": getattr(self.environment.runner, 'user_id', 'N/A')}
+            )
+
+    def on_stop(self):
+        if self.cursor:
+            self.cursor.close()
+        if self.conn:
+            self.conn.close()
+
 ```
 
 ### Run Locust
