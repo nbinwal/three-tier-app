@@ -346,17 +346,3 @@ terraform destroy -auto-approve
 * [Cloud Run autoscaling](https://cloud.google.com/run/docs/about-instance-autoscaling)
 
 ---
-
-## License
-
-This project is open‑source under the [MIT License](LICENSE).
-
-```
-
-You can copy & paste this into your `README.md` (or submit it as a PR) to retain all original content and add the requested **Frontend and Middle Tier Testing** section. Let me know if you’d like any tweaks!
-::contentReference[oaicite:8]{index=8}
-```
-
-[1]: https://raw.githubusercontent.com/nbinwal/three-tier-app/main/Readme.md "raw.githubusercontent.com"
-[2]: https://formulae.brew.sh/formula/hey?utm_source=chatgpt.com "hey - Homebrew Formulae"
-[3]: https://github.com/rakyll/hey?utm_source=chatgpt.com "rakyll/hey: HTTP load generator, ApacheBench (ab) replacement"
